@@ -3022,9 +3022,15 @@ class Chart(
         return self.add_params(*params)
 
     def interactive(
-        self, name: Optional[str] = None, bind_x: bool = True, bind_y: bool = True
+        self,
+        name: Optional[str] = None,
+        bind_x: bool = True,
+        bind_y: bool = True,
+        tooltip: bool = True,
+        legend: Union[bool, list] = False,
+        legend_opacity: tuple = (0.7, 0.1),
     ) -> Self:
-        """Make chart axes scales interactive
+        """Add common interactive elements to the chart
 
         Parameters
         ----------
@@ -3032,9 +3038,15 @@ class Chart(
             The parameter name to use for the axes scales. This name should be
             unique among all parameters within the chart.
         bind_x : boolean, default True
-            If true, then bind the interactive scales to the x-axis
+            Bind the interactive scales to the x-axis
         bind_y : boolean, default True
-            If true, then bind the interactive scales to the y-axis
+            Bind the interactive scales to the y-axis
+        tooltip : boolean, default True,
+            Add a tooltip containing the encodings used in the chart
+        legend : boolean or list, default True
+            Make the legend clickable and control the opacity of the marks
+        legend_opacity : tuple, default (0.7, 0.1)
+            The default opacity values for the clicked and unclicked marks
 
         Returns
         -------
@@ -3047,7 +3059,42 @@ class Chart(
             encodings.append("x")
         if bind_y:
             encodings.append("y")
-        return self.add_params(selection_interval(bind="scales", encodings=encodings))
+        if not legend:
+            return self.add_params(
+                selection_interval(bind="scales", encodings=encodings)
+            ).configure_mark(tooltip=tooltip)
+        else:
+            if not isinstance(legend, list):
+                # Detect common legend encodings used in the spec
+                legend = [
+                    enc
+                    for enc in self.encoding.to_dict().keys()
+                    if enc
+                    in [
+                        "angle",
+                        "radius",
+                        "color",
+                        "fill",
+                        "shape",
+                        "size",
+                        "stroke",
+                    ]
+                ]
+            legend_selection = selection_point(bind="legend", encodings=legend)
+            return (
+                self
+                .configure_mark(tooltip=tooltip)
+                .add_params(
+                    selection_interval(bind="scales", encodings=encodings),
+                    legend_selection,
+                ).encode(
+                    opacity=condition(
+                        legend_selection,
+                        value(legend_opacity[0]),
+                        value(legend_opacity[1]),
+                    )
+                )
+            )
 
 
 def _check_if_valid_subspec(spec: Union[dict, core.SchemaBase], classname: str) -> None:
